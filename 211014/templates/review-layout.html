@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+
+    <title>Dear,my sun</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Birthstone&display=swap" rel="stylesheet">
+
+    <style>
+        *{
+
+        }
+
+        .lead {
+            font-family: 'Birthstone', cursive;
+            font-weight: lighter;
+            font-size: 30px;
+            color: black;
+            line-height:50px;
+        }
+
+        .jumbotron{
+            width: 900px;
+            margin: 30px auto 10px auto;
+            border-radius: 2px;
+
+            background-image: url("https://cdn.pixabay.com/photo/2016/11/23/17/56/couple-1854081_1280.jpg");
+            background-position: left;
+            background-size: 1200px;
+        }
+
+        .container {
+            padding-left: 50px;
+            padding-right: 50px;
+        }
+
+        .card-columns {
+            width: 900px;
+            margin: auto;
+        }
+
+        .card-comment {
+            font-weight: bold;
+            color: blue;
+        }
+
+        .posting-box {
+            width: 900px;
+            margin: 0 auto 20px auto;
+
+            border: 1px solid black;
+            border-radius: 2px;
+            padding: 30px;
+
+            display: none;
+
+        }
+        
+        .sector-line {
+            width: 900px;
+            border: 0;
+            height: 3px;
+            background: black;
+        }
+
+        .btn-outline-dark {
+            margin-top: 20px;
+        }
+
+    </style>
+    <script>
+        $(document).ready(function () {
+                showArticles();
+            });
+        // $(document).ready(function () {
+        //     $('#cards-box').empty();
+        //     listing();
+        // });
+
+        // function listing() {
+        //     $.ajax({
+        //         type: "GET",
+        //         url: "http://spartacodingclub.shop/post",
+        //         data: {},
+        //         success: function (response) {
+        //             let rows = response['articles']
+        //             for (let i = 0; i < rows.length; i++){
+        //                 let comment = rows[i]['comment']
+        //                 let desc = rows[i]['desc']
+        //                 let title = rows[i]['title']
+        //                 let img = rows[i]['image']
+        //                 let url = rows[i]['url']
+        //
+        //                 let temp_html = `<div class="card" style="width: 18rem;">
+        //                                     <img class="card-img-top"
+        //                                          src="${img}"
+        //                                          alt="Card image cap">
+        //                                     <div class="card-body">
+        //                                         <a class="card-title" href="${url}">${title}</a>
+        //                                         <p class="card-text">${desc}</p>
+        //                                         <p class="card-comment">${comment}</p>
+        //                                     </div>
+        //                                 </div>`
+        //                 $('#cards-box').append(temp_html)
+        //             }
+        //         }
+        //     })
+        // }
+
+
+        function openclose() {
+            let status = $('#post-box').css('display');
+            if (status == 'block'){
+                $('#post-box').hide();
+                $('#btn-posting-box').text('리뷰작성하기');
+            } else {
+                $('#post-box').show();
+                $('#btn-posting-box').text('리뷰작성닫기');
+            }
+        }
+
+
+        function postArticle() {
+            let where = $('#where').val()
+            let img = $('#article-url').val()
+            let review = $('#review').val()
+
+                $.ajax({
+                    type: "POST",
+                    url: "/reviewpage",
+                    data: {where_give:where,upload_give:img,review_give:review},
+                    success: function (response) { // 성공하면
+                        alert(response["msg"]);
+                        window.location.reload();
+                    }
+                })
+            }
+
+            function showArticles() {
+                $.ajax({
+                    type: "GET",
+                    url: "/reviewpage",
+                    data: {},
+                    success: function (response) {
+                        let reviews = response['all_reviews']
+                        for (let i = 0; i < reviews.length; i++){
+                            let where = reviews[i]['where']
+                            let upload = reviews[i]['upload']
+                            let goreview = reviews[i]['review']
+
+                            // console.log(where, upload, review)
+                            let temp_html = `<div class="card">
+                                                <img class="card-img-top"
+                                                     src="${upload}"
+                                                     alt="Card image cap">
+                                                <div class="card-body">
+                                                    <a target="_blank" href="" class="card-title">${where}</a>
+                                                    <p class="card-text">${goreview}</p>
+                            <!--                        <p class="card-text comment"> 더보기 </p>-->
+                                                </div>
+                                            </div>`
+                            $('#cards-box').append(temp_html)
+                        }
+                    }
+                })
+            }
+
+    </script>
+</head>
+
+<body>
+        <div class="jumbotron jumbotron-fluid">
+          <div class="container">
+            <h1 style="font-weight: bold"> 추억저장소 <span class="lead">/ The memory of that day still haunts me.</span></h1>
+
+              <hr class="line-title">
+              <a onclick="openclose()" id="btn-posting-box" class="btn btn-dark btn-sm" href="#" role="button">리뷰작성하기</a>
+          </div>
+        </div>
+
+        <div class="posting-box" id="post-box">
+            <div>
+                <label>명소위치</label>
+                <input type="text" class="form-control" id="where">
+            </div>
+
+            <div class="form-group">
+                <label>사진 업로드</label>
+                <input type="file" class="form-control" id="article-url" >
+            </div>
+            <div>
+                <label>리뷰쓰기</label>
+                <textarea class="form-control" id="review" rows="3"></textarea>
+            </div>
+            <button type="button" class="btn btn-outline-dark btn-sm" onclick="postArticle()">리뷰저장</button>
+
+        </div>
+        
+        <hr class="sector-line">
+        <div class="card-columns" id="cards-box">
+
+        </div>
+    </div>
+</body>
+
+</html>
