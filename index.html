@@ -25,7 +25,7 @@
     <link href="https://fonts.googleapis.com/css?family=Stylish&display=swap" rel="stylesheet">
 
 
-    <title>스파르타코딩클럽 | 나홀로 메모장</title>
+    <title>내배캠 | 질문합시다</title>
 
     <!-- style -->
     <style type="text/css">
@@ -53,10 +53,15 @@
     </style>
     <script>
         let order = "asc";
+        let perPage = "5";
 
         $(document).ready(function () {
             $("#cards-box").html("");
-            showArticles();
+            showArticles(1);
+            $("#perPagingSelect").change(function () {
+                perPage = $(this).val();
+                showArticles(1)
+            })
         });
 
         function openClose() {
@@ -68,6 +73,26 @@
                 $("#post-comment").val('');
                 $("#post-box").show();
                 $("#btn-post-box").text("포스팅 박스 닫기");
+            }
+        }
+
+        function welcomeOnOff() {
+            if ($("#welcome").css("display") == "block") {
+                $("#welcome").hide();
+            } else {
+                $("#welcome-username").val('');
+                $("#welcome-password").val('');
+                $("#welcome").show();
+            }
+        }
+
+        function loginOnOff() {
+            if ($("#login").css("display") == "block") {
+                $("#login").hide();
+            } else {
+                $("#login-username").val('');
+                $("#login-password").val('');
+                $("#login").show();
             }
         }
 
@@ -107,19 +132,97 @@
             }
         }
 
-        function showArticles() {
+        function showArticles(curPage) {
+            let searchTitle = $("#searchTitle").val();
             $.ajax({
                 type: "GET",
-                url: `/articles?order=${order}`,
+                url: `/articles?perPage=${perPage}&curPage=${curPage}&order=${order}&searchTitle=${searchTitle}`,
                 data: {},
                 success: function (response) {
                     $("#list-post").empty();
                     let articles = response["articles"];
+                    let pagingInfo = response["pagingInfo"];
                     for (let i = 0; i < articles.length; i++) {
-                        makeListPost(articles[i], i);
+                        let num = response["pagingInfo"]["totalCount"] - (perPage * (curPage - 1)) - i
+                        makeListPost(articles[i], num);
                     }
+                    makePaging(pagingInfo);
                 }
             })
+        }
+
+        function makePaging(pagingInfo) {
+            let tempHtml = '';
+            for (let i = 0; i < pagingInfo['totalPage']; i++) {
+                if (i + 1 == pagingInfo['curPage']) {
+                    tempHtml += `<li class="page-item active"><a class="page-link" href="#">${i + 1}</a></li>`;
+                } else {
+                    tempHtml += `<li class="page-item"><a class="page-link" href="#" onclick="showArticles(${i + 1})">${i + 1}</a></li>`;
+                }
+            }
+            $("#pagination").html(tempHtml);
+        }
+
+        function searching() {
+            showArticles(1)
+        }
+
+        function sign_up() {
+            let username = $("#input-username").val()
+            let password = $("#input-password").val()
+            console.log(username, password)
+
+            $.ajax({
+                type: "POST",
+                url: "/sign_up/save",
+                data: {
+                    username_give: username,
+                    password_give: password
+                },
+                success: function (response) {
+                    alert("회원가입을 축하드립니다!")
+                    window.location.replace("/login")
+                }
+            });
+
+        }
+
+
+        function sign_in() {
+            let username = $("#input-username").val()
+            let password = $("#input-password").val()
+
+            if (username == "") {
+                $("#help-id-login").text("아이디를 입력해주세요.")
+                $("#input-username").focus()
+                return;
+            } else {
+                $("#help-id-login").text("")
+            }
+
+            if (password == "") {
+                $("#help-password-login").text("비밀번호를 입력해주세요.")
+                $("#input-password").focus()
+                return;
+            } else {
+                $("#help-password-login").text("")
+            }
+            $.ajax({
+                type: "POST",
+                url: "/sign_in",
+                data: {
+                    username_give: username,
+                    password_give: password
+                },
+                success: function (response) {
+                    if (response['result'] == 'success') {
+                        $.cookie('mytoken', response['token'], {path: '/'});
+                        window.location.replace("/")
+                    } else {
+                        alert(response['msg'])
+                    }
+                }
+            });
         }
 
         function getArticle(idx) {
@@ -145,7 +248,6 @@
                 url: `/article/${idx}`,
                 data: {},
                 success: function (response) {
-                    console.log(response['article'])
                     let title = response['article']['title']
                     let content = response['article']['content']
                     $('#modal-title').html(title);
@@ -157,7 +259,7 @@
 
         function makeListPost(post, index) {
             let tempHtml = ` <tr>
-                      <th scope="row">${index + 1}</th>
+                      <th scope="row">${index}</th>
                       <td><a href="#" onclick="readArticle(${post['idx']})">${post['title']}</td>
                       <td>${post['reg_date']}</td>
                       <td>${post['read_count']}</td>
@@ -195,19 +297,27 @@
   <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm6.5 4.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5a.5.5 0 0 1 1 0z"/>
 </svg>`)
             }
-            showArticles();
+            showArticles(1);
         }
 
-        function search() {
-        var v_search = document.getElementById("search").value;
-        var v_keyword = document.getElementById("keyword").value;
-
-        if(v_search == "") {
-            return false
-        } else {
-            self.location.href = "{{url_for('article_list')}}?search=" + v_search + "&keyword=" + v_keyword;
+        function addFiles() {
+            $("#upload").append("<input type='file' name='file'>");
         }
-    }
+
+        function saveFiles() {
+            var form_data = new FormData($('#upload')[0]);
+            $.ajax({
+                type: 'POST',
+                url: '/files',
+                data: form_data,
+                contentType: false,
+                cache: false,
+                processData: false,
+                success: function () {
+                    console.log('Success!');
+                },
+            });
+        }
     </script>
 
 </head>
@@ -215,13 +325,38 @@
 <body>
 <div class="wrap">
     <div class="jumbotron">
-        <h1 class="display-4">나홀로 메모장!</h1>
+        <h1 class="display-4">질문합시다!!</h1>
         <hr class="my-4">
         <p class="lead">
             <button onclick="openClose()" id="btn-post-box" type="button" class="btn btn-primary">포스팅 박스 열기
             </button>
+            <button onclick="loginOnOff()" id="btn-post-box" type="button" class="btn btn-primary">로그인
+            </button>
+            <button onclick="welcomeOnOff()" id="btn-post-box" type="button" class="btn btn-primary">회원가입
+            </button>
         </p>
     </div>
+    <div class="form-group" id="login" style="display: none">
+        <h6>로그인</h6>
+        <label>아이디</label>
+        <input id="login-username" class="form-control" placeholder="">
+        <label>패스워드</label>
+        <input id="login-password" class="form-control" placeholder="">
+        <button onclick="sign_in()" id="btn-post-box" type="button" class="btn btn-primary">close
+        </button>
+        <button onclick="sign_in()" id="btn-post-box" type="button" class="btn btn-primary">로그인
+        </button>
+    </div>
+    <div class="form-group" id="welcome" style="display: none">
+        <h6>회원가입</h6>
+        <input id="welcome-username" class="form-control" placeholder="">
+        <input id="welcome-password" class="form-control" placeholder="">
+        <button onclick="" id="btn-post-box" type="button" class="btn btn-primary">close
+        </button>
+        <button onclick="sign_up()" id="btn-post-box" type="button" class="btn btn-primary">회원가입
+        </button>
+    </div>
+
     <div id="post-box" class="form-post" style="display:none">
         <div>
             <div class="form-group">
@@ -235,6 +370,13 @@
             <input id="post-idx" class="form-control" placeholder="" hidden>
             <button type="button" class="btn btn-primary" onclick="postingArticle()">기사저장</button>
         </div>
+    </div>
+    <div class="input-group mb-3" style="width: 10%;margin: 0% 90%;">
+        <select class="custom-select" id="perPagingSelect">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+        </select>
     </div>
     <table class="table">
         <thead>
@@ -255,30 +397,19 @@
         <tbody id="list-post">
         </tbody>
     </table>
+    <nav aria-label="Page navigation example">
+        <ul class="pagination" style="justify-content: center; " id="pagination">
+        </ul>
+    </nav>
+    <div class="input-group mb-3" style="width: 40%;margin: 0% 30%;">
+        <input type="text" class="form-control" placeholder="제목" aria-label="제목"
+               aria-describedby="basic-addon2" id="searchTitle">
+        <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="button" onclick="searching()">검색</button>
+        </div>
+    </div>
 </div>
-{% if block_start - 1 > 0 %}
-    <a href="{{url_for('article_list', page=block_start - 1)}}">[이전]</a>
-{% endif %}
-{% for i in range(block_start, block_end + 1)%}
-    {% if i > last_page_num %}
 
-    {% else %}
-        {% if i == page %}
-            <b>{{ i }}</b>
-        {% else %}
-            <a href="{{url_for('article_list', page=i)}}">{{ i }}</a>
-        {% endif %}
-    {% endif %}
-{% endfor %}
-
-{% if block_end < last_page_num %}
-    <a href="{{url_for('article_list', page=block_end + 1)}}">[다음]</a>
-{% endif %}
-
-
-{% else %}
-<h3>데이터가 존재하지 않습니다.</h3>
-{% endif %}
 <!-- Modal -->
 <div class="modal fade" id="articleModal" tabindex="-1" role="dialog" aria-labelledby="articleModalLabel"
      aria-hidden="true">

@@ -2,6 +2,11 @@ from datetime import datetime
 
 from flask import Flask, render_template, jsonify, request
 from pymongo import MongoClient
+import hashlib
+import jwt
+from datetime import datetime, timedelta
+
+from pprac import SECRET_KEY
 
 app = Flask(__name__)
 
@@ -12,6 +17,36 @@ db = client.dbStock
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/sign_up/save', methods=['POST'])
+def sign_up():
+    # 회원가입
+    username_receive = request.form['username_give']
+    password_receive = request.form['password_give']
+    password_hash = hashlib.sha256(password_receive.encode('utf-8')).hexdigest()
+    # DB에 저장
+    return jsonify({'result': 'success'})
+
+@app.route('/sign_in', methods=['POST'])
+def sign_in():
+    # 로그인
+    username_receive = request.form['username_give']
+    password_receive = request.form['password_give']
+
+    pw_hash = hashlib.sha256(password_receive.encode('utf-8')).hexdigest()
+    result = db.users.find_one({'username': username_receive, 'password': pw_hash})
+
+    if result is not None:
+        payload = {
+         'id': username_receive,
+         'exp': datetime.utcnow() + timedelta(seconds=60 * 60 * 24)  # 로그인 24시간 유지
+        }
+        token = jwt.encode(payload, SECRET_KEY, algorithm='HS256').decode('utf-8')
+
+        return jsonify({'result': 'success', 'token': token})
+    # 찾지 못하면
+    else:
+        return jsonify({'result': 'fail', 'msg': '아이디/비밀번호가 일치하지 않습니다.'})
 
 
 @app.route('/article', methods=['POST'])
@@ -38,15 +73,37 @@ def save_post():
 @app.route('/articles', methods=['GET'])
 def get_posts():
     order = request.args.get('order')
+    per_page = request.args.get('perPage')
+    cur_page = request.args.get('curPage')
+    search_title = request.args.get('searchTitle')
+    search_condition = {}
+    if search_title is not None:
+        search_condition = {"title": {"$regex": search_title}}
+
+    limit = int(per_page)
+    skip = limit * (int(cur_page) - 1)
+    total_count = db.article.find(search_condition).count()
+    total_page = int(total_count / limit) + (1 if total_count % limit > 0 else 0)
+
     if order == "desc":
-        articles = list(db.article.find({}, {'_id': False}).sort([("read_count", -1)]))
+        articles = list(db.article.find(search_condition, {'_id': False})
+                        .sort([("read_count", -1)]).skip(skip).limit(limit))
     else:
-        articles = list(db.article.find({}, {'_id': False}).sort([("reg_date", -1)]))
+        articles = list(db.article.find(search_condition, {'_id': False})
+                        .sort([("reg_date", -1)]).skip(skip).limit(limit))
 
     for a in articles:
         a['reg_date'] = a['reg_date'].strftime('%Y.%m.%d %H:%M:%S')
 
-    return jsonify({"articles": articles})
+    paging_info = {
+        "totalCount": total_count,
+        "totalPage": total_page,
+        "perPage": per_page,
+        "curPage": cur_page,
+        "searchTitle": search_title
+    }
+
+    return jsonify({"articles": articles, "pagingInfo": paging_info})
 
 
 @app.route('/article', methods=['DELETE'])
@@ -78,30 +135,6 @@ def update_read_count(idx):
     article = db.article.find_one({'idx': int(idx)}, {'_id': False})
     return jsonify({"article": article})
 
-
-@app.route("/list")
-def article_list():
-    article = mongo.db.article
-    page = request.args.get("page", 1, type=int)
-    limit = 10
-
-    datas = article.find({}).skip((page - 1) * limit).limit(limit)
-
-    tot_count = article.find({}).count()
-    last_page_num = math.ceil(tot_count / limit)
-
-    block_size = 5
-    block_num = int((page - 1) / block_size)
-    block_start = (block_size * block_num) + 1
-    block_end = block_start + (block_size - 1)
-    return render_template(
-        "index.html",
-        datas=datas,
-        limit=limit,
-        page=page,
-        block_start=block_start,
-        block_end=block_end,
-        last_page_num=last_page_num)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
