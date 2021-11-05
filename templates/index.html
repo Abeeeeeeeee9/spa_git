@@ -39,7 +39,7 @@
         }
 
         .wrap {
-            width: 900px;
+            width: 1200px;
             margin: auto;
         }
 
@@ -54,6 +54,7 @@
     <script>
         let order = "asc";
         let perPage = "5";
+        let listType = "all";
 
         $(document).ready(function () {
             $("#cards-box").html("");
@@ -61,7 +62,25 @@
             $("#perPagingSelect").change(function () {
                 perPage = $(this).val();
                 showArticles(1)
-            })
+            });
+            $.ajaxSetup({
+                error: function (jqXHR, exception) {
+                    switch (jqXHR.status) {
+                        case 401:
+                            alert('인증 에러!!');
+                            break;
+                        case 423:
+                            alert('중복된 id!!');
+                            break;
+                    }
+                },
+                beforeSend: function (xhr) {
+                    if (localStorage.getItem('token') != null) {
+                        xhr.setRequestHeader('Authorization', localStorage.getItem('token'));
+                    }
+                }
+            });
+            loginCheck();
         });
 
         function openClose() {
@@ -76,26 +95,22 @@
             }
         }
 
-        function welcomeOnOff() {
-            if ($("#welcome").css("display") == "block") {
-                $("#welcome").hide();
-            } else {
-                $("#welcome-username").val('');
-                $("#welcome-password").val('');
-                $("#welcome").show();
-            }
+        function saveComment() {
+            let text = $('#comment').val();
+            $.ajax({
+                    type: "POST",
+                    url: "/article",
+                    data: {text: text},
+                    success: function (response) {
+                        if (response["result"] == "success") {
+                            alert("저장되었어요!!");
+                            window.location.reload();
+                        } else {
+                            alert("오류발생!");
+                        }
+                    }
+                })
         }
-
-        function loginOnOff() {
-            if ($("#login").css("display") == "block") {
-                $("#login").hide();
-            } else {
-                $("#login-username").val('');
-                $("#login-password").val('');
-                $("#login").show();
-            }
-        }
-
         function postingArticle() {
             let url = $("#post-url").val();
             let comment = $("#post-comment").val();
@@ -131,12 +146,29 @@
                 })
             }
         }
+        function showComment(curPage) {
+            $.ajax({
+                type: "GET",
+                url: `/article`,
+                data: {},
+                success: function (response) {
+                    let article = response["article"];
+                    for (let i = 0; i < article.length; i++) {
+                        let text = article[i]['text'];
+
+                        let temp_html = `<ul class="list-group" id="modal-comment">${text}</ul>`
+
+                        $('#modal-comment').append(temp_html)
+                    }
+                }
+            })
+        }
 
         function showArticles(curPage) {
             let searchTitle = $("#searchTitle").val();
             $.ajax({
                 type: "GET",
-                url: `/articles?perPage=${perPage}&curPage=${curPage}&order=${order}&searchTitle=${searchTitle}`,
+                url: `/articles/${listType}?perPage=${perPage}&curPage=${curPage}&order=${order}&searchTitle=${searchTitle}`,
                 data: {},
                 success: function (response) {
                     $("#list-post").empty();
@@ -165,64 +197,6 @@
 
         function searching() {
             showArticles(1)
-        }
-
-        function sign_up() {
-            let username = $("#input-username").val()
-            let password = $("#input-password").val()
-            console.log(username, password)
-
-            $.ajax({
-                type: "POST",
-                url: "/sign_up/save",
-                data: {
-                    username_give: username,
-                    password_give: password
-                },
-                success: function (response) {
-                    alert("회원가입을 축하드립니다!")
-                    window.location.replace("/login")
-                }
-            });
-
-        }
-
-
-        function sign_in() {
-            let username = $("#input-username").val()
-            let password = $("#input-password").val()
-
-            if (username == "") {
-                $("#help-id-login").text("아이디를 입력해주세요.")
-                $("#input-username").focus()
-                return;
-            } else {
-                $("#help-id-login").text("")
-            }
-
-            if (password == "") {
-                $("#help-password-login").text("비밀번호를 입력해주세요.")
-                $("#input-password").focus()
-                return;
-            } else {
-                $("#help-password-login").text("")
-            }
-            $.ajax({
-                type: "POST",
-                url: "/sign_in",
-                data: {
-                    username_give: username,
-                    password_give: password
-                },
-                success: function (response) {
-                    if (response['result'] == 'success') {
-                        $.cookie('mytoken', response['token'], {path: '/'});
-                        window.location.replace("/")
-                    } else {
-                        alert(response['msg'])
-                    }
-                }
-            });
         }
 
         function getArticle(idx) {
@@ -261,6 +235,7 @@
             let tempHtml = ` <tr>
                       <th scope="row">${index}</th>
                       <td><a href="#" onclick="readArticle(${post['idx']})">${post['title']}</td>
+                      <td>${post['writer'] ? post['writer'] : '비회원'}</td>
                       <td>${post['reg_date']}</td>
                       <td>${post['read_count']}</td>
                       <td><button type="button" class="btn btn-danger" onclick="deleteArticle(${post['idx']})">삭제</button></td>
@@ -300,23 +275,76 @@
             showArticles(1);
         }
 
-        function addFiles() {
-            $("#upload").append("<input type='file' name='file'>");
+        function openCloseLogin() {
+            $('#login-id').val('');
+            $('#login-pwd').val('');
+            $('#loginModal').modal('show');
         }
 
-        function saveFiles() {
-            var form_data = new FormData($('#upload')[0]);
+        function login() {
             $.ajax({
-                type: 'POST',
-                url: '/files',
-                data: form_data,
-                contentType: false,
-                cache: false,
-                processData: false,
-                success: function () {
-                    console.log('Success!');
-                },
+                type: "POST",
+                url: "/login",
+                data: {id: $("#login-id").val(), pwd: $("#login-pwd").val()},
+                success: function (response) {
+                    localStorage.setItem('token', response['token']);
+                    alert("로그인 되었습니다!!");
+                    $('#loginModal').modal('hide');
+                    loginCheck();
+                }
+            })
+        }
+
+        function openCloseJoin() {
+            $('#joinModal').modal('show');
+        }
+
+        function join() {
+            $.ajax({
+                type: "POST",
+                url: "/join",
+                data: {id: $("#join-id").val(), pwd: $("#join-pwd").val()},
+                success: function (response) {
+                    alert("로그인 해주세요!!");
+                    $('#joinModal').modal('hide');
+                }
+            })
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            $('#btn-login').show();
+            $('#btn-logout').hide();
+            $('#btn-join').show();
+        }
+
+        function loginCheck() {
+            if (localStorage.getItem('token')) {
+                $('#btn-login').hide();
+                $('#btn-logout').show();
+                $('#btn-join').hide();
+            }
+        }
+
+        function setListType(type) {
+            if (type == 'my' && !localStorage.getItem('token')) {
+                alert("로그인 하세요!!");
+                return false;
+            }
+
+            if (listType == type) return false;
+            item = `#list-${type}`;
+            $(item).closest("ul").find("li").each(function (index) {
+                if ($(this).children("a").hasClass("active")) {
+                    $(this).children("a").removeClass("active");
+                    $(this).children("a").addClass("disabled");
+                } else {
+                    $(this).children("a").addClass("active");
+                    $(this).children("a").removeClass("disabled");
+                }
             });
+            listType = type;
+            showArticles(1);
         }
     </script>
 
@@ -328,35 +356,13 @@
         <h1 class="display-4">질문합시다!!</h1>
         <hr class="my-4">
         <p class="lead">
-            <button onclick="openClose()" id="btn-post-box" type="button" class="btn btn-primary">포스팅 박스 열기
+            <button onclick="openClose()" id="btn-post-box" type="button" class="btn btn-primary">포스팅 박스 열기</button>
+            <button onclick="openCloseLogin()" id="btn-login" type="button" class="btn btn-secondary">로그인</button>
+            <button onclick="logout()" id="btn-logout" type="button" class="btn btn-danger" style="display:none">로그아웃
             </button>
-            <button onclick="loginOnOff()" id="btn-post-box" type="button" class="btn btn-primary">로그인
-            </button>
-            <button onclick="welcomeOnOff()" id="btn-post-box" type="button" class="btn btn-primary">회원가입
-            </button>
+            <button onclick="openCloseJoin()" id="btn-join" type="button" class="btn btn-success">회원가입</button>
         </p>
     </div>
-    <div class="form-group" id="login" style="display: none">
-        <h6>로그인</h6>
-        <label>아이디</label>
-        <input id="login-username" class="form-control" placeholder="">
-        <label>패스워드</label>
-        <input id="login-password" class="form-control" placeholder="">
-        <button onclick="sign_in()" id="btn-post-box" type="button" class="btn btn-primary">close
-        </button>
-        <button onclick="sign_in()" id="btn-post-box" type="button" class="btn btn-primary">로그인
-        </button>
-    </div>
-    <div class="form-group" id="welcome" style="display: none">
-        <h6>회원가입</h6>
-        <input id="welcome-username" class="form-control" placeholder="">
-        <input id="welcome-password" class="form-control" placeholder="">
-        <button onclick="" id="btn-post-box" type="button" class="btn btn-primary">close
-        </button>
-        <button onclick="sign_up()" id="btn-post-box" type="button" class="btn btn-primary">회원가입
-        </button>
-    </div>
-
     <div id="post-box" class="form-post" style="display:none">
         <div>
             <div class="form-group">
@@ -371,6 +377,14 @@
             <button type="button" class="btn btn-primary" onclick="postingArticle()">기사저장</button>
         </div>
     </div>
+    <ul class="nav nav-pills">
+        <li class="nav-item">
+            <a class="nav-link active" href="#" id="list-all" onclick="setListType('all')">전체글</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link disabled" href="#" id="list-my" onclick="setListType('my')">내글</a>
+        </li>
+    </ul>
     <div class="input-group mb-3" style="width: 10%;margin: 0% 90%;">
         <select class="custom-select" id="perPagingSelect">
             <option value="5">5</option>
@@ -383,6 +397,7 @@
         <tr>
             <th scope="col">#</th>
             <th scope="col">제목</th>
+            <th scope="col">글쓴이</th>
             <th scope="col">날짜</th>
             <th scope="col">조회<span onclick="setOrder()" id="viewOrder">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
@@ -424,7 +439,71 @@
             <div class="modal-body" id="modal-content">
             </div>
             <div class="modal-footer">
+                <textarea id="comment" class="form-control" rows="2"></textarea>
+                <input id="modal-idx" hidden/>
+                <button type="button" class="btn btn-secondary" onclick="saveComment()">댓글</button>
+            </div>
+            <ul class="list-group" id="modal-comment">
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Login Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">로그인</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="form-group">
+                        <label for="login-id" class="col-form-label">아이디</label>
+                        <input type="text" class="form-control" id="login-id">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-pwd" class="col-form-label">패스워드</label>
+                        <input type="password" class="form-control" id="login-pwd">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="login()">로그인</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Join Modal -->
+<div class="modal fade" id="joinModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">회원가입</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="form-group">
+                        <label for="join-id" class="col-form-label">아이디</label>
+                        <input type="text" class="form-control" id="join-id">
+                    </div>
+                    <div class="form-group">
+                        <label for="join-pwd" class="col-form-label">패스워드</label>
+                        <input type="password" class="form-control" id="join-pwd">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="join()">회원가입</button>
             </div>
         </div>
     </div>
